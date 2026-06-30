@@ -317,8 +317,9 @@ ${mode ? `Mode requested: ${mode}` : ''}`;
             { role: 'user', content: message }
         ];
 
-        // Call OpenAI API
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        // ✅ UPDATED: Use OPENAI_BASE_URL from environment or fallback
+        const baseUrl = env.OPENAI_BASE_URL || 'https://openrouter.ai/api/v1';
+        const response = await fetch(`${baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
