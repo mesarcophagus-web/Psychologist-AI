@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Твой Психолог - AI-powered psychological guidance with three unique characters">
+    <meta name="theme-color" content="#0f3460">
+    <title>Твой Психолог</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container" id="mainScreen">
+        <div class="header">
+            <h1>🌙 Твой Психолог</h1>
+            <p>Выбери своего проводника</p>
+        </div>
+        <div class="characters-grid">
+            <div class="character-card" onclick="openChat('stoic')">
+                <div class="character-icon">🏛️</div>
+                <div class="character-name">Стоик-философ</div>
+                <div class="character-description">Спокойный, ясный, невозмутимый. Говорит мало, но точно.</div>
+            </div>
+            <div class="character-card" onclick="openChat('mom')">
+                <div class="character-icon">🤱</div>
+                <div class="character-name">Заботливая мама</div>
+                <div class="character-description">Тёплая, принимающая, внимательная. Рядом с ней можно выдохнуть.</div>
+            </div>
+            <div class="character-card" onclick="openChat('coach')">
+                <div class="character-icon">🔥</div>
+                <div class="character-name">Дерзкий коуч</div>
+                <div class="character-description">Прямолинейный, энергичный, честный. Говорит правду в лицо.</div>
+            </div>
+        </div>
+    </div>
+    <div class="chat-screen" id="chatScreen">
+        <div class="chat-header">
+            <button class="back-button" onclick="goBack()">←</button>
+            <div class="chat-character-icon" id="chatIcon"></div>
+            <div class="chat-character-name" id="chatName"></div>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="modes-container">
+            <button class="mode-button" onclick="sendMode('просто побудь рядом')">Побудь рядом</button>
+            <button class="mode-button" onclick="sendMode('разбери глубоко')">Разбери глубоко</button>
+            <button class="mode-button" onclick="sendMode('дай взгляд со стороны')">Взгляд со стороны</button>
+            <button class="mode-button" onclick="sendMode('помоги увидеть слепые зоны')">Слепые зоны</button>
+            <button class="mode-button" onclick="sendMode('мне нужен только вопрос')">Только вопрос</button>
+        </div>
+        <div class="chat-input-container">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Напиши сообщение..." onkeypress="handleKeyPress(event)">
+            <button class="send-button" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
