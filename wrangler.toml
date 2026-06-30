@@ -3,5 +3,13 @@ main = "functions/index.js"
 compatibility_date = "2024-01-15"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+OPENAI_BASE_URL = "https://openrouter.ai/api/v1"
+# OPENAI_API_KEY is now set via wrangler secret
+
 [env.production]
 name = "psychologist-ai-prod"
+
+[env.production.vars]
+OPENAI_BASE_URL = "https://openrouter.ai/api/v1"
+# OPENAI_API_KEY is now set via wrangler secret
