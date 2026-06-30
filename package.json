@@ -12,7 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "itty-router": "^4.7.8",
+    "itty-router": "^4.0.0",
     "openai": "^4.50.0"
   },
   "devDependencies": {
