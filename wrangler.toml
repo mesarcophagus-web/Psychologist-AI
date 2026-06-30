@@ -5,7 +5,3 @@ compatibility_flags = ["nodejs_compat"]
 
 [env.production]
 name = "psychologist-ai-prod"
-
-[[r2_buckets]]
-binding = "CHAT_HISTORY"
-bucket_name = "psychologist-chat-history"
