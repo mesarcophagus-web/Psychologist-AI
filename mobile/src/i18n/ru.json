@@ -1,0 +1,48 @@
+{
+  "app": { "title": "Psychologist AI", "subtitle": "Vash lichny II-psiholog" },
+  "home": {
+    "greeting": "Viberite terapevta",
+    "subtitle": "U kajdogo svoy unikalny podhod",
+    "recentSession": "Prodolzit sesiyu"
+  },
+  "characters": {
+    "stoic": {
+      "name": "Stoik",
+      "tagline": "Mudrost i razum",
+      "description": "Spokoinaya stoicheskaya filosofiya. Focus na tom, chto v vashey vlasti."
+    },
+    "mom": {
+      "name": "Zabotlivaya mama",
+      "tagline": "Teplo i podderzhka",
+      "description": "Bezuslovnaya lyubov i prinyatie. Slushaet i ponimaet."
+    },
+    "coach": {
+      "name": "Laif-kouch",
+      "tagline": "Deistvie i rost",
+      "description": "Pryamaya motiviruyushchaya podderzhka. Prevraschaet chuvstva v dvizhenie."
+    }
+  },
+  "chat": {
+    "placeholder": "Podelites tem, chto u vas na ume...",
+    "send": "Otpravit",
+    "typing": "otvechaet...",
+    "clearChat": "Ochistit chat",
+    "clearConfirmTitle": "Ochistit razgovor?",
+    "clearConfirmMsg": "Eto deistvie nelzya otmenit.",
+    "confirm": "Ochistit",
+    "cancel": "Otmena",
+    "errorMsg": "Chto-to poshlo ne tak. Proverite podklyuchenie.",
+    "offlineBanner": "Net podklyucheniya k internetu"
+  },
+  "settings": {
+    "title": "Nastroiki",
+    "language": "Yazyk",
+    "aiLanguage": "II otvechaet na",
+    "chooseLanguage": "Vibrat yazyk",
+    "about": "O prilozhenii",
+    "version": "Versiya 1.0.0",
+    "clearAllData": "Ochistit vse dannye",
+    "clearAllConfirm": "Eto udalit vse sohranennye razgovory."
+  },
+  "languages": { "en": "English", "fr": "Frantsuzsky", "es": "Ispansky", "ru": "Russky" }
+}
