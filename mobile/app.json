@@ -1,7 +1,4 @@
-// At the top of App.js
-import API_CONFIG from './src/config/api';
-import ENV from './src/config/env';
-  {
+{
   "expo": {
     "name": "Psychologist AI",
     "slug": "psychologistai",
@@ -26,7 +23,9 @@ import ENV from './src/config/env';
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.mesarcophagusweb.psychologistai"
+      "package": "com.mesarcophagusweb.psychologistai",
+      "permissions": [],
+      "enableDangerousExperimentalLeanBuilds": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,10 +38,6 @@ import ENV from './src/config/env';
       "production": true
     },
     "runtimeVersion": "1.0.0",
-    "android": {
-      "permissions": [],
-      "enableDangerousExperimentalLeanBuilds": true
-    },
     "plugins": [
       [
         "expo-build-properties",
