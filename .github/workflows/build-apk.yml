@@ -24,19 +24,27 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install root dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Install mobile dependencies
+      - name: Install expo-build-properties
         run: |
           cd mobile
-          npm install --legacy-peer-deps
+          npx expo install expo-build-properties --save
 
-      - name: Build APK
+      - name: Install dependencies
+        run: |
+          npm install --prefer-offline --no-audit
+          cd mobile
+          npm install --prefer-offline --no-audit
+
+      - name: Prebuild for Android
+        run: |
+          cd mobile
+          npx expo prebuild --platform android --clean
+
+      - name: Build Release APK
         run: |
           cd mobile/android
           chmod +x gradlew
-          ./gradlew assembleRelease -x lint
+          ./gradlew assembleRelease
 
       - name: Upload APK
         if: success()
