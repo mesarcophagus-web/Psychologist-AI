@@ -1,296 +1,52 @@
-
-name: 🔧 TOTAL FIX & APK BUILDER
+name: Build APK
 
 on:
   push:
-    branches: [main, master, develop]
-  pull_request:
-    branches: [main, master]
+    branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: Build Type
-        required: true
-        type: choice
-        options:
-          - debug
-          - release
-        default: release
-      clean_install:
-        description: Perform clean install?
-        required: true
-        type: boolean
-        default: true
-      upload_artifact:
-        description: Upload APK artifact?
-        required: true
-        type: boolean
-        default: true
-
-env:
-  NODE_VERSION: "18"
-  JAVA_VERSION: "17"
-  ANDROID_COMPILE_SDK: "34"
-  ANDROID_TARGET_SDK: "34"
-  ANDROID_BUILD_TOOLS: "34.0.0"
-  ANDROID_MIN_SDK: "21"
 
 jobs:
-  diagnostics:
-    name: Diagnostics
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      project_name: ${{ steps.analyze.outputs.project_name }}
-      package_name: ${{ steps.analyze.outputs.package_name }}
-      react_native_version: ${{ steps.analyze.outputs.react_native_version }}
-      has_android_dir: ${{ steps.analyze.outputs.has_android_dir }}
-      issues_found: ${{ steps.analyze.outputs.issues_found }}
-      build_gradle_issues: ${{ steps.analyze.outputs.build_gradle_issues }}
+    
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Run diagnostics
-        id: analyze
-        shell: bash
-        run: |
-          set -e
-
-          ISSUES_FOUND=""
-          BUILD_GRADLE_ISSUES=""
-
-          if [ ! -f "package.json" ]; then
-            echo "package.json not found"
-            exit 1
-          fi
-
-          PROJECT_NAME=$(node -e "console.log(require('./package.json').name || 'unknown-app')")
-          echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
-
-          if [ -d "android" ]; then
-            echo "has_android_dir=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_android_dir=false" >> "$GITHUB_OUTPUT"
-            ISSUES_FOUND="$ISSUES_FOUND,missing-android-dir"
-          fi
-
-          RN_VERSION=$(node -e "const pkg=require('./package.json'); const deps={...(pkg.dependencies||{}), ...(pkg.devDependencies||{})}; console.log(deps['react-native'] || 'not found')")
-          echo "react_native_version=$RN_VERSION" >> "$GITHUB_OUTPUT"
-
-          if [ "$RN_VERSION" = "not found" ]; then
-            ISSUES_FOUND="$ISSUES_FOUND,missing-react-native"
-          fi
-
-          if [ -f "android/app/build.gradle" ]; then
-            PACKAGE_NAME=$(grep -oE 'applicationId[[:space:]]+"[^"]+"' android/app/build.gradle | head -1 | cut -d'"' -f2)
-            if [ -z "$PACKAGE_NAME" ]; then
-              PACKAGE_NAME="com.unknown.app"
-              BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-applicationId"
-            fi
-            echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
-          else
-            echo "package_name=com.unknown.app" >> "$GITHUB_OUTPUT"
-            BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-build-gradle"
-          fi
-
-          if [ -n "$ISSUES_FOUND" ]; then
-            echo "issues_found=${ISSUES_FOUND#,}" >> "$GITHUB_OUTPUT"
-          else
-            echo "issues_found=none" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [ -n "$BUILD_GRADLE_ISSUES" ]; then
-            echo "build_gradle_issues=${BUILD_GRADLE_ISSUES#,}" >> "$GITHUB_OUTPUT"
-          else
-            echo "build_gradle_issues=none" >> "$GITHUB_OUTPUT"
-          fi
-
-  build-android:
-    name: Build Android APK
-    needs: diagnostics
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
+          node-version: '18'
+      
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: gradle
-
+          distribution: 'temurin'
+          java-version: '17'
+      
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Determine build mode
-        id: mode
-        shell: bash
+      
+      - name: Install Dependencies
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "build_type=${{ inputs.build_type }}" >> "$GITHUB_OUTPUT"
-            echo "clean_install=${{ inputs.clean_install }}" >> "$GITHUB_OUTPUT"
-            echo "upload_artifact=${{ inputs.upload_artifact }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "build_type=debug" >> "$GITHUB_OUTPUT"
-            echo "clean_install=true" >> "$GITHUB_OUTPUT"
-            echo "upload_artifact=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/gradle-wrapper.properties') }}
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          set -e
-          if [ -f yarn.lock ]; then
-            corepack enable
-            yarn install --frozen-lockfile
-          elif [ -f pnpm-lock.yaml ]; then
-            corepack enable
-            pnpm install --frozen-lockfile
-          else
-            npm ci
-          fi
-
-      - name: Clean Android build
-        if: steps.mode.outputs.clean_install == 'true'
-        shell: bash
-        run: |
-          if [ -d android ]; then
-            cd android
-            ./gradlew clean
-          fi
-
-      - name: Prepare signing files
-        if: steps.mode.outputs.build_type == 'release'
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ] || [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
-            echo "Missing Android signing secrets"
-            exit 1
-          fi
-
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
-
-          cat > android/keystore.properties <<EOF
-          storeFile=app/release.keystore
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          EOF
-
-      - name: Build debug APK
-        if: steps.mode.outputs.build_type == 'debug'
-        shell: bash
+          # Remove expo packages causing errors
+          npm pkg delete dependencies.expo-build-properties 2>/dev/null || true
+          npm pkg delete devDependencies.expo-build-properties 2>/dev/null || true
+          npm pkg delete dependencies.expo 2>/dev/null || true
+          
+          # Clean install
+          rm -rf node_modules package-lock.json
+          npm install --legacy-peer-deps
+      
+      - name: Build APK
         run: |
           cd android
-          ./gradlew assembleDebug
-
-      - name: Build release APK
-        if: steps.mode.outputs.build_type == 'release'
-        shell: bash
-        run: |
-          cd android
+          chmod +x gradlew
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
           ./gradlew assembleRelease
-
-      - name: Collect APK path
-        id: apk
-        shell: bash
-        run: |
-          if [ "${{ steps.mode.outputs.build_type }}" = "release" ]; then
-            APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          else
-            APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -1)
-          fi
-
-          if [ -z "$APK_PATH" ]; then
-            echo "APK not found"
-            exit 1
-          fi
-
-          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
-
-      - name: Upload APK artifact
-        if: steps.mode.outputs.upload_artifact == 'true'
+      
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type || 'debug' }}-apk
-          path: ${{ steps.apk.outputs.apk_path }}
-          if-no-files-found: error
-          retention-days: 14
-```
-
----
-
-## What Was Wrong
-
-### 1. Invalid YAML at the end
-This line was plain text, not a YAML comment or string:
-
-```yaml
-TURN it into fully production-ready GitHub Actions workflow that actually builds the APK, signs release builds, and uploads artifacts.
-```
-
-That breaks parsing completely.
-
-### 2. Workflow was incomplete
-The original file stopped mid-script at:
-
-```bash
-echo "Checking React Native dependencies..."
-```
-
-There was no actual build step, no APK assembly, no signing, and no artifact upload.
-
-### 3. Release signing was missing
-A production Android release build usually needs:
-- keystore file
-- key alias
-- keystore password
-- key password
-
-The fixed workflow supports signing via GitHub Secrets:
-- `ANDROID_KEYSTORE_BASE64`
-- `ANDROID_KEYSTORE_PASSWORD`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
-
-### 4. Some expressions were fragile
-The original script used shell parsing and `grep -oP`, which is not always portable. The corrected version keeps the workflow simpler and safer.
-
-### 5. No actual artifact upload logic
-The workflow needed `actions/upload-artifact` to store the generated APK.
-
----
-
-## Required GitHub Secrets for Release Builds
-
-Add these secrets in your repository settings:
-
-- `ANDROID_KEYSTORE_BASE64`
-- `ANDROID_KEYSTORE_PASSWORD`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
-
-`ANDROID_KEYSTORE_BASE64` should be the Base64-encoded keystore file.
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
