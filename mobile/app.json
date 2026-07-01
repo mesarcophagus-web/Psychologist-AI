@@ -1,3 +1,6 @@
+// At the top of App.js
+import API_CONFIG from './src/config/api';
+import ENV from './src/config/env';
 {
   "expo": {
     "name": "Psychologist AI",
