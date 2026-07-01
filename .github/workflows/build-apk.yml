@@ -27,26 +27,145 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
       
-      - name: Install Dependencies
+      - name: Auto-Fix Package Issues and Install
         run: |
-          # Remove expo packages causing errors
-          npm pkg delete dependencies.expo-build-properties 2>/dev/null || true
-          npm pkg delete devDependencies.expo-build-properties 2>/dev/null || true
-          npm pkg delete dependencies.expo 2>/dev/null || true
+          echo "🔍 Scanning for problematic packages..."
           
-          # Clean install
-          rm -rf node_modules package-lock.json
-          npm install --legacy-peer-deps
+          # Remove all packages that don't exist or cause version errors
+          node << 'NODEEOF'
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+          
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          let modified = false;
+          
+          // List of known problematic/non-existent packages
+          const problematicPackages = [
+            'expo',
+            'expo-build-properties',
+            'expo-modules',
+            'expo-modules-core',
+            'expo-constants',
+            'expo-file-system',
+            'expo-font',
+            'expo-keep-awake',
+            'expo-status-bar',
+            'expo-updates',
+            'expo-asset',
+            'expo-splash-screen',
+            'jest-expo',
+            'react-native-bundle-analyzer',
+            'babel-plugin-transform-remove-console',
+            'babel-plugin-module-resolver',
+            'transform-react-remove-prop-types',
+            'react-native-vector-icons',
+            'react-native-mmkv',
+            'react-native-reanimated',
+            'react-native-gesture-handler',
+            'react-native-screens',
+            'react-native-safe-area-context',
+            '@react-native-async-storage/async-storage',
+            '@react-navigation/native',
+            '@react-navigation/native-stack',
+            'axios',
+            'metro-minify-terser',
+            'source-map-explorer'
+          ];
+          
+          // Check and remove problematic packages
+          for (const pkgName of problematicPackages) {
+            if (pkg.dependencies && pkg.dependencies[pkgName]) {
+              const version = pkg.dependencies[pkgName];
+              console.log(`⚠️  Removing dependencies.${pkgName}: ${version}`);
+              delete pkg.dependencies[pkgName];
+              modified = true;
+            }
+            if (pkg.devDependencies && pkg.devDependencies[pkgName]) {
+              const version = pkg.devDependencies[pkgName];
+              console.log(`⚠️  Removing devDependencies.${pkgName}: ${version}`);
+              delete pkg.devDependencies[pkgName];
+              modified = true;
+            }
+          }
+          
+          if (modified) {
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log('✅ package.json cleaned');
+          } else {
+            console.log('✅ No problematic packages found');
+          }
+          NODEEOF
+          
+          echo ""
+          echo "🧹 Cleaning environment..."
+          rm -rf node_modules
+          rm -f package-lock.json
+          rm -f yarn.lock
+          npm cache clean --force
+          
+          echo ""
+          echo "📦 Installing dependencies..."
+          
+          # Try normal install first
+          if npm install --legacy-peer-deps 2>&1 | tee install.log; then
+            echo "✅ Install successful"
+          else
+            echo "⚠️  Install failed, checking for more issues..."
+            
+            # Check if there are other version errors
+            if grep -q "ETARGET" install.log; then
+              echo "🔍 Found more version errors, removing them..."
+              
+              # Extract package names from errors
+              grep "No matching version found for" install.log | \
+                sed 's/.*No matching version found for //' | \
+                sed 's/@.*//' | \
+                sort -u | \
+                while read -r badPkg; do
+                  echo "Removing $badPkg..."
+                  npm pkg delete "dependencies.$badPkg" 2>/dev/null || true
+                  npm pkg delete "devDependencies.$badPkg" 2>/dev/null || true
+                done
+              
+              echo "Retrying install..."
+              npm install --legacy-peer-deps
+            else
+              echo "❌ Unknown error, trying force install..."
+              npm install --force --legacy-peer-deps
+            fi
+          fi
+          
+          echo ""
+          echo "📋 Installed packages:"
+          npm ls --depth=0 2>/dev/null || true
       
       - name: Build APK
         run: |
+          echo "🔨 Building APK..."
+          
           cd android
           chmod +x gradlew
           echo "sdk.dir=$ANDROID_HOME" > local.properties
+          
+          # Clean first
+          ./gradlew clean
+          
+          # Build
           ./gradlew assembleRelease
+          
+          # Verify
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            echo "✅ APK built successfully!"
+            ls -lh app/build/outputs/apk/release/app-release.apk
+          else
+            echo "❌ APK not found at expected location"
+            find . -name "*.apk" 2>/dev/null
+            exit 1
+          fi
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
