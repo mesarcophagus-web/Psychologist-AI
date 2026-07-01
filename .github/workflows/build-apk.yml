@@ -1,73 +1,89 @@
-name: Build Android APK
+name: Build Release APK
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  build-apk:
-    name: Build Release APK
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
+          cache: 'npm'
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Install dependencies
-        working-directory: mobile
-        run: npm install
+        run: |
+          cd mobile
+          npm install
 
-      - name: Expo Prebuild (generates Android project)
-        working-directory: mobile
-        run: npx expo prebuild --platform android --clean
+      - name: Setup Expo
+        run: npm install -g expo-cli eas-cli
 
-      - name: Make Gradlew executable
-        run: chmod +x mobile/android/gradlew
+      - name: Prebuild for Android
+        run: |
+          cd mobile
+          npm run prebuild
 
       - name: Build Release APK
-        working-directory: mobile/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: |
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
-      - name: Upload APK Artifact
+      - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: psychologist-ai-release
-          path: mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: release-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
-      - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+      - name: Create Release
+        if: success()
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: build-${{ github.run_number }}
-          name: "APK Build #${{ github.run_number }}"
+          tag_name: release-${{ github.run_number }}
+          release_name: Release APK - Build ${{ github.run_number }}
           body: |
-            Auto-built release APK from commit ${{ github.sha }}
-            Download and install on any Android device.
-          files: mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
-          prerelease: true
+            ## Production APK Build
+            
+            **Build Details:**
+            - Build Number: ${{ github.run_number }}
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref_name }}
+            
+            **Download APK:**
+            See artifacts or download from GitHub Actions
+            
+            **Installation:**
+            ```bash
+            adb install app-release.apk
+            ```
+            
+            **API Endpoint:** https://psychologistai.mi-emaehf.workers.dev
+          draft: false
+          prerelease: false
+
+      - name: Upload APK to Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          files: mobile/android/app/build/outputs/apk/release/app-release.apk
+          tag_name: release-${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
