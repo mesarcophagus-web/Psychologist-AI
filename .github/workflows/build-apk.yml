@@ -32,11 +32,6 @@ jobs:
           cd mobile
           npm install --prefer-offline --no-audit
 
-      - name: Install expo-build-properties
-        run: |
-          cd mobile
-          npm install expo-build-properties --save
-
       - name: Setup Expo
         run: npm install -g expo-cli eas-cli
 
