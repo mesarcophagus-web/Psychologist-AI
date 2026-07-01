@@ -1,30 +1,61 @@
 // At the top of App.js
 import API_CONFIG from './src/config/api';
 import ENV from './src/config/env';
-{
+  {
   "expo": {
     "name": "Psychologist AI",
-    "slug": "psychologist-ai",
+    "slug": "psychologistai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0d0d1a"
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mesarcophagusweb.psychologistai"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0d0d1a"
+        "backgroundColor": "#ffffff"
       },
-      "package": "com.mesarcophagusweb.psychologistai",
-      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
-      "versionCode": 1
+      "package": "com.mesarcophagusweb.psychologistai"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      },
+      "apiUrl": "https://psychologistai.mi-emaehf.workers.dev",
+      "production": true
+    },
+    "runtimeVersion": "1.0.0",
+    "android": {
+      "permissions": [],
+      "enableDangerousExperimentalLeanBuilds": true
     },
     "plugins": [
-      "expo-font"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 23,
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ]
     ]
   }
 }
