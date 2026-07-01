@@ -1,48 +1,56 @@
 {
-  "app": { "title": "Psychologist AI", "subtitle": "Vash lichny II-psiholog" },
+  "app": { 
+    "title": "Психолог ИИ", 
+    "subtitle": "Ваш личный ИИ-психолог" 
+  },
   "home": {
-    "greeting": "Viberite terapevta",
-    "subtitle": "U kajdogo svoy unikalny podhod",
-    "recentSession": "Prodolzit sesiyu"
+    "greeting": "Выберите терапевта",
+    "subtitle": "У каждого свой уникальный подход",
+    "recentSession": "Продолжить сессию"
   },
   "characters": {
     "stoic": {
-      "name": "Stoik",
-      "tagline": "Mudrost i razum",
-      "description": "Spokoinaya stoicheskaya filosofiya. Focus na tom, chto v vashey vlasti."
+      "name": "Стоик",
+      "tagline": "Мудрость и разум",
+      "description": "Спокойная стоическая философия. Фокус на том, что в вашей власти."
     },
     "mom": {
-      "name": "Zabotlivaya mama",
-      "tagline": "Teplo i podderzhka",
-      "description": "Bezuslovnaya lyubov i prinyatie. Slushaet i ponimaet."
+      "name": "Заботливая мама",
+      "tagline": "Тепло и поддержка",
+      "description": "Безусловная любовь и принятие. Слушает и понимает."
     },
     "coach": {
-      "name": "Laif-kouch",
-      "tagline": "Deistvie i rost",
-      "description": "Pryamaya motiviruyushchaya podderzhka. Prevraschaet chuvstva v dvizhenie."
+      "name": "Лайф-коуч",
+      "tagline": "Действие и рост",
+      "description": "Прямая мотивирующая поддержка. Превращает чувства в движение."
     }
   },
   "chat": {
-    "placeholder": "Podelites tem, chto u vas na ume...",
-    "send": "Otpravit",
-    "typing": "otvechaet...",
-    "clearChat": "Ochistit chat",
-    "clearConfirmTitle": "Ochistit razgovor?",
-    "clearConfirmMsg": "Eto deistvie nelzya otmenit.",
-    "confirm": "Ochistit",
-    "cancel": "Otmena",
-    "errorMsg": "Chto-to poshlo ne tak. Proverite podklyuchenie.",
-    "offlineBanner": "Net podklyucheniya k internetu"
+    "placeholder": "Поделитесь тем, что у вас на уме...",
+    "send": "Отправить",
+    "typing": "отвечает...",
+    "clearChat": "Очистить чат",
+    "clearConfirmTitle": "Очистить разговор?",
+    "clearConfirmMsg": "Это действие нельзя отменить.",
+    "confirm": "Очистить",
+    "cancel": "Отмена",
+    "errorMsg": "Что-то пошло не так. Проверьте подключение.",
+    "offlineBanner": "Нет подключения к интернету"
   },
   "settings": {
-    "title": "Nastroiki",
-    "language": "Yazyk",
-    "aiLanguage": "II otvechaet na",
-    "chooseLanguage": "Vibrat yazyk",
-    "about": "O prilozhenii",
-    "version": "Versiya 1.0.0",
-    "clearAllData": "Ochistit vse dannye",
-    "clearAllConfirm": "Eto udalit vse sohranennye razgovory."
+    "title": "Настройки",
+    "language": "Язык",
+    "aiLanguage": "ИИ отвечает на",
+    "chooseLanguage": "Выбрать язык",
+    "about": "О приложении",
+    "version": "Версия 1.0.0",
+    "clearAllData": "Очистить все данные",
+    "clearAllConfirm": "Это удалит все сохранённые разговоры."
   },
-  "languages": { "en": "English", "fr": "Frantsuzsky", "es": "Ispansky", "ru": "Russky" }
+  "languages": { 
+    "en": "Английский", 
+    "fr": "Французский", 
+    "es": "Испанский", 
+    "ru": "Русский" 
+  }
 }
