@@ -1,0 +1,48 @@
+{
+  "app": { "title": "Psychologist AI", "subtitle": "Tu psicologo IA personal" },
+  "home": {
+    "greeting": "Elige tu terapeuta",
+    "subtitle": "Cada uno tiene un enfoque unico para ayudarte",
+    "recentSession": "Continuar sesion"
+  },
+  "characters": {
+    "stoic": {
+      "name": "El Estoico",
+      "tagline": "Sabiduria y Razon",
+      "description": "Filosofia estoica para enfocarte en lo que puedes controlar."
+    },
+    "mom": {
+      "name": "Madre Afectuosa",
+      "tagline": "Calidez y Apoyo",
+      "description": "Presencia nutritiva y validante. Compasion incondicional."
+    },
+    "coach": {
+      "name": "Coach de Vida",
+      "tagline": "Accion y Crecimiento",
+      "description": "Guia directa y motivacional. Convierte emociones en impulso."
+    }
+  },
+  "chat": {
+    "placeholder": "Comparte lo que tienes en mente...",
+    "send": "Enviar",
+    "typing": "esta respondiendo...",
+    "clearChat": "Borrar chat",
+    "clearConfirmTitle": "Borrar conversacion?",
+    "clearConfirmMsg": "Esta accion no se puede deshacer.",
+    "confirm": "Borrar",
+    "cancel": "Cancelar",
+    "errorMsg": "Algo salio mal. Verifica tu conexion.",
+    "offlineBanner": "Sin conexion a internet"
+  },
+  "settings": {
+    "title": "Configuracion",
+    "language": "Idioma",
+    "aiLanguage": "La IA responde en",
+    "chooseLanguage": "Elegir idioma",
+    "about": "Acerca de",
+    "version": "Version 1.0.0",
+    "clearAllData": "Borrar todos los datos",
+    "clearAllConfirm": "Esto eliminara todas las conversaciones."
+  },
+  "languages": { "en": "English", "fr": "Frances", "es": "Espanol", "ru": "Ruso" }
+}
