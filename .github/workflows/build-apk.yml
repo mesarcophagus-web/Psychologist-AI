@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build Debug APK
+    name: Build Release APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,26 +47,15 @@ jobs:
       - name: Make Gradlew executable
         run: chmod +x mobile/android/gradlew
 
-      - name: Build Debug APK with retry
+      - name: Build Release APK
         working-directory: mobile/android
-        run: |
-          for i in {1..3}; do
-            echo "Build attempt $i..."
-            if ./gradlew assembleDebug --no-daemon; then
-              echo "Build succeeded!"
-              exit 0
-            fi
-            echo "Build attempt $i failed, waiting before retry..."
-            sleep 15
-          done
-          echo "All build attempts failed."
-          exit 1
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: psychologist-ai-debug
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: psychologist-ai-release
+          path: mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -76,9 +65,9 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: "APK Build #${{ github.run_number }}"
           body: |
-            Auto-built debug APK from commit ${{ github.sha }}
+            Auto-built release APK from commit ${{ github.sha }}
             Download and install on any Android device.
-          files: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          files: mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
