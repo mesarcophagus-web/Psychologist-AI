@@ -17,7 +17,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -25,10 +24,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install dependencies
+      - name: Install root dependencies
+        run: npm install --prefer-offline --no-audit
+
+      - name: Install mobile dependencies
         run: |
           cd mobile
-          npm install
+          npm install --prefer-offline --no-audit
 
       - name: Setup Expo
         run: npm install -g expo-cli eas-cli
@@ -36,7 +38,7 @@ jobs:
       - name: Prebuild for Android
         run: |
           cd mobile
-          npm run prebuild
+          npx expo prebuild --platform android --clean
 
       - name: Build Release APK
         run: |
@@ -45,6 +47,7 @@ jobs:
           ./gradlew assembleRelease
 
       - name: Upload APK to Artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
@@ -53,22 +56,18 @@ jobs:
 
       - name: Create Release
         if: success()
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
+          files: mobile/android/app/build/outputs/apk/release/app-release.apk
           tag_name: release-${{ github.run_number }}
           release_name: Release APK - Build ${{ github.run_number }}
           body: |
-            ## Production APK Build
+            ## Production APK Build Successful! 🎉
             
             **Build Details:**
             - Build Number: ${{ github.run_number }}
             - Commit: ${{ github.sha }}
             - Branch: ${{ github.ref_name }}
-            
-            **Download APK:**
-            See artifacts or download from GitHub Actions
             
             **Installation:**
             ```bash
@@ -78,12 +77,5 @@ jobs:
             **API Endpoint:** https://psychologistai.mi-emaehf.workers.dev
           draft: false
           prerelease: false
-
-      - name: Upload APK to Release
-        if: success()
-        uses: softprops/action-gh-release@v1
-        with:
-          files: mobile/android/app/build/outputs/apk/release/app-release.apk
-          tag_name: release-${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
