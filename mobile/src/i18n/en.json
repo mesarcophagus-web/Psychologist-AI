@@ -1,0 +1,48 @@
+{
+  "app": { "title": "Psychologist AI", "subtitle": "Your personal AI therapist" },
+  "home": {
+    "greeting": "Choose your therapist",
+    "subtitle": "Each has a unique approach to help you",
+    "recentSession": "Continue session"
+  },
+  "characters": {
+    "stoic": {
+      "name": "The Stoic",
+      "tagline": "Wisdom & Reason",
+      "description": "Calm Stoic philosophy to help you focus on what you can control."
+    },
+    "mom": {
+      "name": "Caring Mother",
+      "tagline": "Warmth & Support",
+      "description": "Nurturing, validating presence. Unconditional compassion."
+    },
+    "coach": {
+      "name": "Life Coach",
+      "tagline": "Action & Growth",
+      "description": "Direct, motivational guidance. Turns feelings into momentum."
+    }
+  },
+  "chat": {
+    "placeholder": "Share what's on your mind...",
+    "send": "Send",
+    "typing": "is responding...",
+    "clearChat": "Clear Chat",
+    "clearConfirmTitle": "Clear conversation?",
+    "clearConfirmMsg": "This cannot be undone.",
+    "confirm": "Clear",
+    "cancel": "Cancel",
+    "errorMsg": "Something went wrong. Please check your connection.",
+    "offlineBanner": "No internet connection"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "aiLanguage": "AI responds in",
+    "chooseLanguage": "Choose Language",
+    "about": "About",
+    "version": "Version 1.0.0",
+    "clearAllData": "Clear All Data",
+    "clearAllConfirm": "This will delete all saved conversations."
+  },
+  "languages": { "en": "English", "fr": "Français", "es": "Español", "ru": "Русский" }
+}
