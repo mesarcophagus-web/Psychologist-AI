@@ -26,6 +26,16 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Install dependencies
         working-directory: mobile
         run: npm install
@@ -37,9 +47,20 @@ jobs:
       - name: Make Gradlew executable
         run: chmod +x mobile/android/gradlew
 
-      - name: Build Debug APK
+      - name: Build Debug APK with retry
         working-directory: mobile/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          for i in {1..3}; do
+            echo "Build attempt $i..."
+            if ./gradlew assembleDebug --no-daemon; then
+              echo "Build succeeded!"
+              exit 0
+            fi
+            echo "Build attempt $i failed, waiting before retry..."
+            sleep 15
+          done
+          echo "All build attempts failed."
+          exit 1
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
