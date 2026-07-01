@@ -1,68 +1,80 @@
-name: Build Release APK
+name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  build-apk:
+    name: Build Debug APK
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install expo-build-properties
-        run: |
-          cd mobile
-          npx expo install expo-build-properties --save
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
       - name: Install dependencies
-        run: |
-          npm install --prefer-offline --no-audit
-          cd mobile
-          npm install --prefer-offline --no-audit
+        working-directory: mobile
+        run: npm install
 
-      - name: Prebuild for Android
-        run: |
-          cd mobile
-          npx expo prebuild --platform android --clean
+      - name: Install expo-build-properties
+        working-directory: mobile
+        run: npm install expo-build-properties --save
 
-      - name: Build Release APK
-        run: |
-          cd mobile/android
-          chmod +x gradlew
-          ./gradlew assembleRelease
+      - name: Verify expo-build-properties installed
+        working-directory: mobile
+        run: npm list expo-build-properties
+
+      - name: Expo Prebuild
+        working-directory: mobile
+        run: npx expo prebuild --platform android --clean
+
+      - name: Make Gradlew executable
+        run: chmod +x mobile/android/gradlew
+
+      - name: Build APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          name: psychologist-ai-debug
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Create Release
-        if: success()
-        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
-          files: mobile/android/app/build/outputs/apk/release/app-release.apk
-          tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
-          body: APK Build ${{ github.run_number }}
-          draft: false
-          prerelease: false
+          tag_name: build-${{ github.run_number }}
+          name: "APK Build #${{ github.run_number }}"
+          body: |
+            Auto-built debug APK from commit ${{ github.sha }}
+          files: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
