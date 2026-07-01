@@ -1,0 +1,145 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+react {
+    // Disable unused features
+}
+
+def enableProguardInReleaseBuilds = true
+def enableSeparateBuildPerCPUArchitecture = true
+def enableHermes = true
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.yourapp"
+    
+    defaultConfig {
+        applicationId "com.yourapp"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        
+        // Enable build optimizations
+        multiDexEnabled true
+        resConfigs "en", "ar" // Only include languages you use
+    }
+    
+    // APK Splitting - Generate separate APKs per architecture
+    splits {
+        abi {
+            reset()
+            enable enableSeparateBuildPerCPUArchitecture
+            universalApk false // Don't generate universal APK (larger size)
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+    }
+    
+    // Map for the version code per architecture
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def versionCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86": 3, "x86_64": 4]
+            def abi = output.getFilter(com.android.build.OutputFile.ABI)
+            
+            if (abi != null) {
+                output.versionCodeOverride =
+                    defaultConfig.versionCode * 1000 + versionCodes.get(abi, 0)
+            }
+        }
+    }
+    
+    buildTypes {
+        debug {
+            // Debug optimizations
+            debuggable true
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        
+        release {
+            // Release optimizations
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            zipAlignEnabled true
+            
+            // ProGuard optimization
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // Additional optimizations
+            crunchPngs true // Optimize PNGs
+            pseudoLocalesEnabled false // Remove pseudo-locales
+        }
+    }
+    
+    // Packaging options to reduce APK size
+    packagingOptions {
+        // Exclude unnecessary files
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/*.kotlin_module'
+        
+        // Exclude unused native libraries
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+        
+        // Exclude unused architectures from libraries
+        exclude 'lib/arm64-v8a/librealm-jni.so'
+        exclude 'lib/armeabi-v7a/librealm-jni.so'
+        exclude 'lib/x86/librealm-jni.so'
+        exclude 'lib/x86_64/librealm-jni.so'
+        
+        // Merge duplicate files
+        merge '**/LICENSE.txt'
+        merge '**/NOTICE.txt'
+    }
+    
+    // Compile options
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    // Core React Native
+    implementation("com.facebook.react:react-android")
+    
+    // Hermes - Optimized JS engine
+    if (enableHermes) {
+        implementation("com.facebook.react:hermes-android")
+        debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
+        debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {
+            exclude group:'com.squareup.okhttp3', module:'okhttp'
+        }
+        debugImplementation("com.facebook.flipper:flipper-fresco-plugin:${FLIPPER_VERSION}")
+    } else {
+        implementation jscFlavor
+    }
+    
+    // AndroidX - Optimized
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    
+    // Remove unused dependencies
+    // Only keep what you actually use
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
