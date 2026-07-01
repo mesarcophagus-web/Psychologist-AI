@@ -24,7 +24,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install root dependencies
+      - name: Install dependencies
         run: npm install --prefer-offline --no-audit
 
       - name: Install mobile dependencies
@@ -32,15 +32,7 @@ jobs:
           cd mobile
           npm install --prefer-offline --no-audit
 
-      - name: Setup Expo
-        run: npm install -g expo-cli eas-cli
-
-      - name: Prebuild for Android
-        run: |
-          cd mobile
-          npx expo prebuild --platform android --clean
-
-      - name: Build Release APK
+      - name: Build Release APK with Gradle
         run: |
           cd mobile/android
           chmod +x gradlew
