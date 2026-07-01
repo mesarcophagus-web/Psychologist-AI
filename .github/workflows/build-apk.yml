@@ -1,1362 +1,296 @@
+
 name: 🔧 TOTAL FIX & APK BUILDER
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Build Type'
+        description: Build Type
         required: true
         type: choice
         options:
-          - 'debug'
-          - 'release'
-        default: 'release'
+          - debug
+          - release
+        default: release
       clean_install:
-        description: 'Perform clean install?'
+        description: Perform clean install?
         required: true
         type: boolean
         default: true
       upload_artifact:
-        description: 'Upload APK artifact?'
+        description: Upload APK artifact?
         required: true
         type: boolean
         default: true
 
 env:
-  NODE_VERSION: '18'
-  JAVA_VERSION: '17'
-  ANDROID_COMPILE_SDK: '34'
-  ANDROID_TARGET_SDK: '34'
-  ANDROID_BUILD_TOOLS: '34.0.0'
-  ANDROID_MIN_SDK: '21'
-  GRADLE_VERSION: '8.5'
-  KOTLIN_VERSION: '1.9.22'
+  NODE_VERSION: "18"
+  JAVA_VERSION: "17"
+  ANDROID_COMPILE_SDK: "34"
+  ANDROID_TARGET_SDK: "34"
+  ANDROID_BUILD_TOOLS: "34.0.0"
+  ANDROID_MIN_SDK: "21"
 
 jobs:
-  # ============================================
-  # JOB 1: DEEP DIAGNOSTICS & ANALYSIS
-  # ============================================
   diagnostics:
+    name: Diagnostics
     runs-on: ubuntu-latest
     outputs:
       project_name: ${{ steps.analyze.outputs.project_name }}
       package_name: ${{ steps.analyze.outputs.package_name }}
       react_native_version: ${{ steps.analyze.outputs.react_native_version }}
-      gradle_version: ${{ steps.analyze.outputs.gradle_version }}
       has_android_dir: ${{ steps.analyze.outputs.has_android_dir }}
       issues_found: ${{ steps.analyze.outputs.issues_found }}
       build_gradle_issues: ${{ steps.analyze.outputs.build_gradle_issues }}
-      
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: 🔧 Setup Node.js
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      
-      - name: 🔍 Run Complete Diagnostics
+
+      - name: Run diagnostics
         id: analyze
+        shell: bash
         run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║          🔍 COMPLETE PROJECT DIAGNOSTICS                    ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
-          
+          set -e
+
           ISSUES_FOUND=""
           BUILD_GRADLE_ISSUES=""
-          
-          # ==========================================
-          # 1. Check Basic Project Files
-          # ==========================================
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📁 1. CHECKING PROJECT FILES"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
+
           if [ ! -f "package.json" ]; then
-            echo "❌ FATAL: package.json not found!"
+            echo "package.json not found"
             exit 1
-          else
-            echo "✅ package.json found"
           fi
-          
-          # Extract project name
+
           PROJECT_NAME=$(node -e "console.log(require('./package.json').name || 'unknown-app')")
-          echo "📦 Project Name: $PROJECT_NAME"
-          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
-          
-          # Check for android directory
+          echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
+
           if [ -d "android" ]; then
-            echo "✅ android/ directory exists"
-            echo "has_android_dir=true" >> $GITHUB_OUTPUT
+            echo "has_android_dir=true" >> "$GITHUB_OUTPUT"
           else
-            echo "⚠️  android/ directory missing - will need to generate"
-            echo "has_android_dir=false" >> $GITHUB_OUTPUT
+            echo "has_android_dir=false" >> "$GITHUB_OUTPUT"
             ISSUES_FOUND="$ISSUES_FOUND,missing-android-dir"
           fi
-          
-          # Check for essential Android files
-          for file in "android/build.gradle" "android/app/build.gradle" "android/settings.gradle" "android/gradle.properties"; do
-            if [ -f "$file" ]; then
-              echo "✅ $file found"
-            else
-              echo "⚠️  $file missing"
-              ISSUES_FOUND="$ISSUES_FOUND,missing-$(basename $file)"
-            fi
-          done
-          
-          # ==========================================
-          # 2. Check Node & NPM
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📦 2. CHECKING NODE & NPM"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          NODE_V=$(node -v)
-          NPM_V=$(npm -v)
-          echo "🟢 Node Version: $NODE_V"
-          echo "🟢 NPM Version: $NPM_V"
-          
-          # Check Node version compatibility
-          NODE_MAJOR=$(echo $NODE_V | grep -oP '\d+' | head -1)
-          if [ "$NODE_MAJOR" -lt 16 ]; then
-            echo "❌ Node version too old! React Native requires Node 16+"
-            ISSUES_FOUND="$ISSUES_FOUND,old-node-version"
-          elif [ "$NODE_MAJOR" -gt 20 ]; then
-            echo "⚠️  Node version might be too new, may cause issues"
-          else
-            echo "✅ Node version compatible"
-          fi
-          
-          # ==========================================
-          # 3. Check Dependencies
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📚 3. CHECKING DEPENDENCIES"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Check React Native version
-          RN_VERSION=$(node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; console.log(deps['react-native'] || 'not found')")
-          echo "📱 React Native: $RN_VERSION"
-          echo "react_native_version=$RN_VERSION" >> $GITHUB_OUTPUT
-          
+
+          RN_VERSION=$(node -e "const pkg=require('./package.json'); const deps={...(pkg.dependencies||{}), ...(pkg.devDependencies||{})}; console.log(deps['react-native'] || 'not found')")
+          echo "react_native_version=$RN_VERSION" >> "$GITHUB_OUTPUT"
+
           if [ "$RN_VERSION" = "not found" ]; then
-            echo "❌ React Native not in dependencies!"
             ISSUES_FOUND="$ISSUES_FOUND,missing-react-native"
           fi
-          
-          # Check for essential Android dependencies
-          for dep in "@react-native-community/cli-platform-android" "react-native-gradle-plugin"; do
-            DEP_VERSION=$(node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; console.log(deps['$dep'] || 'not found')")
-            if [ "$DEP_VERSION" = "not found" ]; then
-              echo "⚠️  $dep not found (might be needed)"
-            else
-              echo "✅ $dep: $DEP_VERSION"
-            fi
-          done
-          
-          # ==========================================
-          # 4. Check Package Manager
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔧 4. CHECKING PACKAGE MANAGER"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Detect lock file (determines package manager)
-          if [ -f "yarn.lock" ]; then
-            echo "📦 Package Manager: Yarn"
-            PKG_MANAGER="yarn"
-          elif [ -f "pnpm-lock.yaml" ]; then
-            echo "📦 Package Manager: pnpm"
-            PKG_MANAGER="pnpm"
-          elif [ -f "package-lock.json" ]; then
-            echo "📦 Package Manager: npm"
-            PKG_MANAGER="npm"
-          else
-            echo "📦 Package Manager: npm (default, no lock file found)"
-            PKG_MANAGER="npm"
-          fi
-          echo "pkg_manager=$PKG_MANAGER" >> $GITHUB_OUTPUT
-          
-          # ==========================================
-          # 5. Check Android Configuration
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🤖 5. CHECKING ANDROID CONFIGURATION"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
+
           if [ -f "android/app/build.gradle" ]; then
-            echo "Analyzing android/app/build.gradle..."
-            
-            # Extract package name
-            PACKAGE_NAME=$(grep -oP 'applicationId\s+"([^"]+)"' android/app/build.gradle | grep -oP '"[^"]+"' | tr -d '"' | head -1)
+            PACKAGE_NAME=$(grep -oE 'applicationId[[:space:]]+"[^"]+"' android/app/build.gradle | head -1 | cut -d'"' -f2)
             if [ -z "$PACKAGE_NAME" ]; then
               PACKAGE_NAME="com.unknown.app"
-              echo "⚠️  Could not detect package name, using: $PACKAGE_NAME"
               BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-applicationId"
-            else
-              echo "✅ Package Name: $PACKAGE_NAME"
             fi
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            
-            # Check compileSdkVersion
-            COMPILE_SDK=$(grep "compileSdkVersion" android/app/build.gradle | grep -oP '\d+' | head -1)
-            if [ -z "$COMPILE_SDK" ]; then
-              echo "⚠️  compileSdkVersion not specified"
-              BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-compileSdk"
-            else
-              echo "✅ compileSdkVersion: $COMPILE_SDK"
-              if [ "$COMPILE_SDK" -lt 33 ]; then
-                echo "⚠️  compileSdkVersion is old ($COMPILE_SDK), Google Play requires 33+"
-                BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,old-compileSdk"
-              fi
-            fi
-            
-            # Check targetSdkVersion
-            TARGET_SDK=$(grep "targetSdkVersion" android/app/build.gradle | grep -oP '\d+' | head -1)
-            if [ -z "$TARGET_SDK" ]; then
-              echo "⚠️  targetSdkVersion not specified"
-              BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-targetSdk"
-            else
-              echo "✅ targetSdkVersion: $TARGET_SDK"
-              if [ "$TARGET_SDK" -lt 33 ]; then
-                echo "⚠️  targetSdkVersion is old, Google Play requires 33+"
-                BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,old-targetSdk"
-              fi
-            fi
-            
-            # Check minSdkVersion
-            MIN_SDK=$(grep "minSdkVersion" android/app/build.gradle | grep -oP '\d+' | head -1)
-            if [ -z "$MIN_SDK" ]; then
-              echo "⚠️  minSdkVersion not specified"
-              BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-minSdk"
-            else
-              echo "✅ minSdkVersion: $MIN_SDK"
-            fi
+            echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
           else
-            echo "⚠️  android/app/build.gradle not found - will need to generate"
+            echo "package_name=com.unknown.app" >> "$GITHUB_OUTPUT"
+            BUILD_GRADLE_ISSUES="$BUILD_GRADLE_ISSUES,missing-build-gradle"
           fi
-          
-          # Check gradle wrapper
-          if [ -f "android/gradle/wrapper/gradle-wrapper.properties" ]; then
-            GRADLE_V=$(grep "distributionUrl" android/gradle/wrapper/gradle-wrapper.properties | grep -oP 'gradle-\d+\.\d+' | head -1)
-            echo "✅ Gradle Version: $GRADLE_V"
-            echo "gradle_version=$GRADLE_V" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️  Gradle wrapper properties not found"
-          fi
-          
-          # ==========================================
-          # 6. Check React Native Config
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "⚛️  6. CHECKING REACT NATIVE CONFIG"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          if [ -f "react-native.config.js" ]; then
-            echo "✅ react-native.config.js found"
-          else
-            echo "ℹ️  No react-native.config.js (optional)"
-          fi
-          
-          if [ -f "metro.config.js" ]; then
-            echo "✅ metro.config.js found"
-          else
-            echo "⚠️  No metro.config.js found"
-          fi
-          
-          if [ -f "babel.config.js" ]; then
-            echo "✅ babel.config.js found"
-          else
-            echo "⚠️  No babel.config.js found"
-          fi
-          
-          # ==========================================
-          # 7. Check for Common Issues
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔍 7. CHECKING FOR COMMON ISSUES"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Check for common problematic packages
-          for pkg in "expo" "expo-build-properties" "expo-modules"; do
-            if node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; process.exit(deps['$pkg'] ? 0 : 1);" 2>/dev/null; then
-              echo "⚠️  Found $pkg in dependencies (not needed for pure React Native)"
-              ISSUES_FOUND="$ISSUES_FOUND,unnecessary-$pkg"
-            fi
-          done
-          
-          # Check for conflicting packages
-          if [ -d "node_modules" ]; then
-            echo "Checking for duplicate packages..."
-            DUPLICATES=$(find node_modules -maxdepth 3 -name "package.json" -exec dirname {} \; | sort | uniq -d 2>/dev/null | head -5)
-            if [ -n "$DUPLICATES" ]; then
-              echo "⚠️  Possible duplicate packages found"
-              echo "$DUPLICATES"
-            else
-              echo "✅ No duplicate packages detected"
-            fi
-          fi
-          
-          # ==========================================
-          # 8. Summary
-          # ==========================================
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 8. DIAGNOSTIC SUMMARY"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          if [ -z "$ISSUES_FOUND" ]; then
-            echo "✅ No major issues detected"
-            echo "issues_found=none" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️  Issues found:$ISSUES_FOUND"
-            echo "issues_found=${ISSUES_FOUND#,}" >> $GITHUB_OUTPUT
-          fi
-          
-          if [ -n "$BUILD_GRADLE_ISSUES" ]; then
-            echo "⚠️  Build gradle issues:$BUILD_GRADLE_ISSUES"
-            echo "build_gradle_issues=${BUILD_GRADLE_ISSUES#,}" >> $GITHUB_OUTPUT
-          else
-            echo "✅ No build.gradle issues"
-            echo "build_gradle_issues=none" >> $GITHUB_OUTPUT
-          fi
-          
-          # Disk space check
-          echo ""
-          echo "💾 Available Disk Space:"
-          df -h / | tail -1
-          
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║          ✅ DIAGNOSTICS COMPLETE                            ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
 
-  # ============================================
-  # JOB 2: COMPLETE FIX & DEPENDENCY RESOLUTION
-  # ============================================
-  fix-and-install:
+          if [ -n "$ISSUES_FOUND" ]; then
+            echo "issues_found=${ISSUES_FOUND#,}" >> "$GITHUB_OUTPUT"
+          else
+            echo "issues_found=none" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$BUILD_GRADLE_ISSUES" ]; then
+            echo "build_gradle_issues=${BUILD_GRADLE_ISSUES#,}" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_gradle_issues=none" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-android:
+    name: Build Android APK
     needs: diagnostics
     runs-on: ubuntu-latest
-    if: |
-      always() && 
-      needs.diagnostics.result == 'success'
-    
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: 🔧 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      
-      - name: 💾 Create Complete Backup
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "💾 CREATING BACKUPS"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          BACKUP_DIR="backup_$(date +%Y%m%d_%H%M%S)"
-          mkdir -p "$BACKUP_DIR"
-          
-          # Backup package files
-          cp package.json "$BACKUP_DIR/" 2>/dev/null || true
-          cp package-lock.json "$BACKUP_DIR/" 2>/dev/null || true
-          cp yarn.lock "$BACKUP_DIR/" 2>/dev/null || true
-          
-          # Backup React Native configs
-          cp babel.config.js "$BACKUP_DIR/" 2>/dev/null || true
-          cp metro.config.js "$BACKUP_DIR/" 2>/dev/null || true
-          cp react-native.config.js "$BACKUP_DIR/" 2>/dev/null || true
-          cp tsconfig.json "$BACKUP_DIR/" 2>/dev/null || true
-          cp .buckconfig "$BACKUP_DIR/" 2>/dev/null || true
-          
-          # Backup Android configs if they exist
-          if [ -d "android" ]; then
-            cp android/build.gradle "$BACKUP_DIR/" 2>/dev/null || true
-            cp android/app/build.gradle "$BACKUP_DIR/" 2>/dev/null || true
-            cp android/settings.gradle "$BACKUP_DIR/" 2>/dev/null || true
-            cp android/gradle.properties "$BACKUP_DIR/" 2>/dev/null || true
-          fi
-          
-          echo "✅ Backup created in: $BACKUP_DIR"
-          echo "backup_dir=$BACKUP_DIR" >> $GITHUB_ENV
-      
-      - name: 🧹 Complete System Clean
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🧹 PERFORMING COMPLETE SYSTEM CLEAN"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Remove node_modules
-          if [ -d "node_modules" ]; then
-            echo "Removing node_modules..."
-            rm -rf node_modules
-            echo "✅ node_modules removed"
-          fi
-          
-          # Remove all lock files
-          for lockfile in package-lock.json yarn.lock pnpm-lock.yaml; do
-            if [ -f "$lockfile" ]; then
-              echo "Removing $lockfile..."
-              rm -f "$lockfile"
-              echo "✅ $lockfile removed"
-            fi
-          done
-          
-          # Clean npm cache
-          echo "Cleaning npm cache..."
-          npm cache clean --force 2>/dev/null || echo "⚠️  npm cache clean had issues (non-critical)"
-          
-          # Clean yarn cache if exists
-          if command -v yarn &> /dev/null; then
-            echo "Cleaning yarn cache..."
-            yarn cache clean --all 2>/dev/null || echo "⚠️  yarn cache clean had issues"
-          fi
-          
-          # Clean pnpm cache if exists
-          if command -v pnpm &> /dev/null; then
-            echo "Cleaning pnpm cache..."
-            pnpm store prune 2>/dev/null || echo "⚠️  pnpm cache clean had issues"
-          fi
-          
-          # Remove build artifacts
-          echo "Removing build artifacts..."
-          rm -rf android/app/build 2>/dev/null || true
-          rm -rf android/.gradle 2>/dev/null || true
-          rm -rf android/build 2>/dev/null || true
-          rm -rf android/app/.cxx 2>/dev/null || true
-          rm -rf .react-native 2>/dev/null || true
-          rm -rf $TMPDIR/react-* 2>/dev/null || true
-          rm -rf $TMPDIR/metro-* 2>/dev/null || true
-          rm -rf $TMPDIR/haste-* 2>/dev/null || true
-          
-          # Remove temp files
-          find . -name "*.log" -type f -delete 2>/dev/null || true
-          find . -name ".DS_Store" -type f -delete 2>/dev/null || true
-          find . -name "*.hprof" -type f -delete 2>/dev/null || true
-          
-          # Clear watchman watches if exists
-          if command -v watchman &> /dev/null; then
-            echo "Clearing watchman watches..."
-            watchman watch-del-all 2>/dev/null || true
-          fi
-          
-          echo "✅ Complete system clean finished"
-      
-      - name: 🔧 Fix package.json Issues
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔧 FIXING PACKAGE.JSON ISSUES"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Remove any Expo-related packages
-          echo "Removing Expo-related dependencies if present..."
-          for expo_pkg in "expo" "expo-build-properties" "expo-modules" "expo-modules-core" "expo-constants" "expo-file-system" "expo-font" "expo-keep-awake" "expo-status-bar" "expo-updates" "expo-asset" "expo-splash-screen" "jest-expo"; do
-            if node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; process.exit(deps['$expo_pkg'] ? 0 : 1);" 2>/dev/null; then
-              echo "Removing $expo_pkg..."
-              npm pkg delete dependencies."$expo_pkg" 2>/dev/null || true
-              npm pkg delete devDependencies."$expo_pkg" 2>/dev/null || true
-              echo "✅ $expo_pkg removed"
-            fi
-          done
-          
-          # Ensure React Native and React are properly versioned
-          echo "Checking React Native dependencies..."
-          
-          # Check if react-native exists
-          if ! node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; process.exit(deps['react-native'] ? 0 : 1);" 2>/dev/null; then
-            echo "Adding react-native to dependencies..."
-            npm pkg set dependencies.react-native="latest"
-          fi
-          
-          # Check if react exists
-          if ! node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; process.exit(deps['react'] ? 0 : 1);" 2>/dev/null; then
-            echo "Adding react to dependencies..."
-            npm pkg set dependencies.react="latest"
-          fi
-          
-          # Add essential Android build dependencies if missing
-          echo "Checking Android build dependencies..."
-          for dep in "@react-native-community/cli-platform-android" "@react-native/gradle-plugin"; do
-            if ! node -e "const pkg = require('./package.json'); const deps = {...pkg.dependencies, ...pkg.devDependencies}; process.exit(deps['$dep'] ? 0 : 1);" 2>/dev/null; then
-              echo "Adding $dep to devDependencies..."
-              npm pkg set devDependencies."$dep"="latest"
-            fi
-          done
-          
-          # Fix scripts if missing
-          echo "Checking npm scripts..."
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            let modified = false;
-            
-            if (!pkg.scripts) {
-              pkg.scripts = {};
-              modified = true;
-            }
-            
-            if (!pkg.scripts.android) {
-              pkg.scripts.android = 'react-native run-android';
-              modified = true;
-            }
-            
-            if (!pkg.scripts.start) {
-              pkg.scripts.start = 'react-native start';
-              modified = true;
-            }
-            
-            if (modified) {
-              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-              console.log('✅ Scripts updated');
-            } else {
-              console.log('✅ Scripts look good');
-            }
-          "
-          
-          echo "✅ package.json fixes applied"
-      
-      - name: 🔧 Fix Android Configuration
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🤖 FIXING ANDROID CONFIGURATION"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # If android directory exists, fix common issues
-          if [ -d "android" ]; then
-            echo "Android directory found, checking configurations..."
-            
-            # Fix gradle.properties
-            if [ -f "android/gradle.properties" ]; then
-              echo "Checking gradle.properties..."
-              
-              # Add missing properties
-              if ! grep -q "android.useAndroidX" android/gradle.properties; then
-                echo "android.useAndroidX=true" >> android/gradle.properties
-                echo "✅ Added android.useAndroidX=true"
-              fi
-              
-              if ! grep -q "android.enableJetifier" android/gradle.properties; then
-                echo "android.enableJetifier=true" >> android/gradle.properties
-                echo "✅ Added android.enableJetifier=true"
-              fi
-              
-              if ! grep -q "FLIPPER_VERSION" android/gradle.properties; then
-                echo "FLIPPER_VERSION=0.182.0" >> android/gradle.properties
-                echo "✅ Added FLIPPER_VERSION"
-              fi
-              
-              if ! grep -q "reactNativeArchitectures" android/gradle.properties; then
-                echo "reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64" >> android/gradle.properties
-                echo "✅ Added reactNativeArchitectures"
-              fi
-              
-              if ! grep -q "newArchEnabled" android/gradle.properties; then
-                echo "newArchEnabled=false" >> android/gradle.properties
-                echo "✅ Added newArchEnabled=false"
-              fi
-              
-              if ! grep -q "hermesEnabled" android/gradle.properties; then
-                echo "hermesEnabled=true" >> android/gradle.properties
-                echo "✅ Added hermesEnabled=true"
-              fi
-              
-              echo "✅ gradle.properties updated"
-            else
-              echo "Creating gradle.properties..."
-              cat > android/gradle.properties << 'EOF'
-              # Project-wide Gradle settings.
-              org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
-              org.gradle.parallel=true
-              org.gradle.caching=true
-              org.gradle.configureondemand=true
-              android.useAndroidX=true
-              android.enableJetifier=true
-              FLIPPER_VERSION=0.182.0
-              reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
-              newArchEnabled=false
-              hermesEnabled=true
-              EOF
-              echo "✅ gradle.properties created"
-            fi
-            
-            # Fix app/build.gradle if exists
-            if [ -f "android/app/build.gradle" ]; then
-              echo "Checking app/build.gradle..."
-              
-              # Ensure proper SDK versions using sed
-              if grep -q "compileSdkVersion" android/app/build.gradle; then
-                sed -i "s/compileSdkVersion\s*=\s*[0-9]*/compileSdkVersion = $ANDROID_COMPILE_SDK/g" android/app/build.gradle
-                echo "✅ Updated compileSdkVersion to $ANDROID_COMPILE_SDK"
-              fi
-              
-              if grep -q "targetSdkVersion" android/app/build.gradle; then
-                sed -i "s/targetSdkVersion\s*=\s*[0-9]*/targetSdkVersion = $ANDROID_TARGET_SDK/g" android/app/build.gradle
-                echo "✅ Updated targetSdkVersion to $ANDROID_TARGET_SDK"
-              fi
-              
-              if grep -q "minSdkVersion" android/app/build.gradle; then
-                sed -i "s/minSdkVersion\s*=\s*[0-9]*/minSdkVersion = $ANDROID_MIN_SDK/g" android/app/build.gradle
-                echo "✅ Updated minSdkVersion to $ANDROID_MIN_SDK"
-              fi
-            fi
-            
-            # Fix build.gradle
-            if [ -f "android/build.gradle" ]; then
-              echo "Checking root build.gradle..."
-              
-              # Update gradle plugin version
-              if grep -q "com.android.tools.build:gradle" android/build.gradle; then
-                sed -i "s/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.2.1/g" android/build.gradle
-                echo "✅ Updated Android Gradle Plugin"
-              fi
-              
-              # Update Kotlin version
-              if grep -q "org.jetbrains.kotlin:kotlin-gradle-plugin" android/build.gradle; then
-                sed -i "s/org.jetbrains.kotlin:kotlin-gradle-plugin:[0-9.]*/org.jetbrains.kotlin:kotlin-gradle-plugin:$KOTLIN_VERSION/g" android/build.gradle
-                echo "✅ Updated Kotlin version to $KOTLIN_VERSION"
-              fi
-            fi
-            
-            # Update gradle wrapper
-            if [ -f "android/gradle/wrapper/gradle-wrapper.properties" ]; then
-              echo "Updating Gradle wrapper..."
-              sed -i "s|distributionUrl=.*|distributionUrl=https\\\://services.gradle.org/distributions/gradle-$GRADLE_VERSION-all.zip|g" android/gradle/wrapper/gradle-wrapper.properties
-              echo "✅ Gradle wrapper updated to $GRADLE_VERSION"
-            fi
-            
-          else
-            echo "⚠️  No android/ directory found - will be generated during build"
-          fi
-          
-          echo "✅ Android configuration fixed"
-        env:
-          ANDROID_COMPILE_SDK: ${{ env.ANDROID_COMPILE_SDK }}
-          ANDROID_TARGET_SDK: ${{ env.ANDROID_TARGET_SDK }}
-          ANDROID_MIN_SDK: ${{ env.ANDROID_MIN_SDK }}
-          GRADLE_VERSION: ${{ env.GRADLE_VERSION }}
-          KOTLIN_VERSION: ${{ env.KOTLIN_VERSION }}
-      
-      - name: 📦 Install Dependencies (Multiple Strategies)
-        id: install
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📦 INSTALLING DEPENDENCIES"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Configure npm for reliability
-          npm config set legacy-peer-deps true
-          npm config set fetch-retries 5
-          npm config set fetch-retry-mintimeout 20000
-          npm config set fetch-retry-maxtimeout 120000
-          npm config set registry https://registry.npmjs.org/
-          
-          # Strategy 1: Normal install
-          echo "🔄 Strategy 1: Normal npm install..."
-          if npm install --no-audit --no-fund --prefer-offline 2>&1 | tee npm-install.log; then
-            echo "✅ Strategy 1 succeeded!"
-            echo "install_method=normal" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          echo "⚠️  Strategy 1 failed, analyzing error..."
-          
-          # Check for common errors
-          if grep -q "ETARGET" npm-install.log; then
-            echo "❌ Version targeting error detected"
-            echo "Attempting to fix version issues..."
-            
-            # Try to fix problematic packages
-            node -e "
-              const fs = require('fs');
-              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-              
-              // Fix packages with known issues
-              const knownFixes = {
-                'react-native': '0.73.4',
-                'react': '18.2.0',
-                '@react-native-community/cli-platform-android': '12.3.0',
-                '@react-native/gradle-plugin': '0.73.4'
-              };
-              
-              for (const [pkg, version] of Object.entries(knownFixes)) {
-                if (pkg.dependencies?.[pkg]) {
-                  pkg.dependencies[pkg] = version;
-                  console.log('Fixed ' + pkg + ' to ' + version);
-                }
-                if (pkg.devDependencies?.[pkg]) {
-                  pkg.devDependencies[pkg] = version;
-                  console.log('Fixed ' + pkg + ' to ' + version);
-                }
-              }
-              
-              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-              console.log('✅ package.json updated with compatible versions');
-            "
-          fi
-          
-          # Strategy 2: Force install
-          echo "🔄 Strategy 2: Force install..."
-          if npm install --force --no-audit --no-fund 2>&1; then
-            echo "✅ Strategy 2 succeeded!"
-            echo "install_method=force" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Strategy 3: Install with specific flags
-          echo "🔄 Strategy 3: Install with --legacy-peer-deps..."
-          if npm install --legacy-peer-deps --no-audit --no-fund 2>&1; then
-            echo "✅ Strategy 3 succeeded!"
-            echo "install_method=legacy-peer-deps" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Strategy 4: Try yarn if available
-          if command -v yarn &> /dev/null; then
-            echo "🔄 Strategy 4: Trying yarn..."
-            if yarn install --frozen-lockfile 2>&1 || yarn install 2>&1; then
-              echo "✅ Strategy 4 succeeded with yarn!"
-              echo "install_method=yarn" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-          fi
-          
-          # Strategy 5: Install packages one by one
-          echo "🔄 Strategy 5: Installing packages individually..."
-          node -e "
-            const fs = require('fs');
-            const { execSync } = require('child_process');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-            
-            Object.keys(deps).forEach(dep => {
-              try {
-                console.log('Installing ' + dep + '...');
-                execSync('npm install ' + dep + ' --no-save --legacy-peer-deps', { stdio: 'inherit' });
-              } catch(e) {
-                console.log('⚠️  Failed to install ' + dep + ': ' + e.message);
-              }
-            });
-          " 2>&1 || true
-          
-          # Final check
-          if [ -d "node_modules/react-native" ]; then
-            echo "✅ React Native installed successfully"
-            echo "install_method=individual" >> $GITHUB_OUTPUT
-          else
-            echo "❌ All installation strategies failed!"
-            echo "install_method=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      
-      - name: 📊 Verify Installation
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 VERIFYING INSTALLATION"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          if [ ! -d "node_modules" ]; then
-            echo "❌ node_modules not found!"
-            exit 1
-          fi
-          
-          # Count installed packages
-          MODULES_COUNT=$(ls -1 node_modules | wc -l)
-          echo "📦 Installed packages: ~$MODULES_COUNT"
-          
-          # Check critical packages
-          for critical_pkg in "react-native" "react" "@react-native-community/cli-platform-android" "metro" "metro-core"; do
-            if [ -d "node_modules/$critical_pkg" ]; then
-              VERSION=$(node -e "console.log(require('./node_modules/$critical_pkg/package.json').version)" 2>/dev/null || echo "unknown")
-              echo "✅ $critical_pkg: $VERSION"
-            else
-              echo "⚠️  $critical_pkg not found"
-            fi
-          done
-          
-          # Check for Expo packages (shouldn't exist)
-          if [ -d "node_modules/expo" ]; then
-            echo "⚠️  WARNING: expo package found (shouldn't be in pure RN project)"
-          else
-            echo "✅ No expo package (as expected)"
-          fi
-          
-          # Show disk usage
-          echo "💾 node_modules size:"
-          du -sh node_modules 2>/dev/null || echo "Cannot determine"
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      
-      - name: 📤 Upload Fixed Project
-        uses: actions/upload-artifact@v4
-        with:
-          name: fixed-project
-          path: |
-            package.json
-            package-lock.json
-            yarn.lock
-            android/
-          retention-days: 7
 
-  # ============================================
-  # JOB 3: GENERATE ANDROID PROJECT (IF NEEDED)
-  # ============================================
-  generate-android:
-    needs: [diagnostics, fix-and-install]
-    if: |
-      always() && 
-      needs.fix-and-install.result == 'success' &&
-      needs.diagnostics.outputs.has_android_dir == 'false'
-    runs-on: ubuntu-latest
-    
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: 🔧 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      
-      - name: 📦 Install Dependencies
-        run: npm install --no-audit --no-fund
-      
-      - name: 🤖 Generate Android Project
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🤖 GENERATING ANDROID PROJECT"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Try different methods to generate Android project
-          
-          # Method 1: react-native init
-          if npx react-native init-android --help &>/dev/null; then
-            echo "Using react-native init-android..."
-            npx react-native init-android
-          # Method 2: react-native eject
-          elif npx react-native eject --help &>/dev/null; then
-            echo "Using react-native eject..."
-            npx react-native eject
-          else
-            echo "⚠️  Standard methods failed, creating minimal Android project manually..."
-            
-            # Create Android directory structure
-            mkdir -p android/app/src/main/java/com/temp/app
-            mkdir -p android/app/src/main/res/values
-            mkdir -p android/gradle/wrapper
-            
-            # Create settings.gradle
-            cat > android/settings.gradle << 'EOF'
-            rootProject.name = 'App'
-            apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
-            include ':app'
-            includeBuild('../node_modules/@react-native/gradle-plugin')
-            EOF
-            
-            # Create root build.gradle
-            cat > android/build.gradle << 'EOF'
-            buildscript {
-                ext {
-                    buildToolsVersion = "34.0.0"
-                    minSdkVersion = 21
-                    compileSdkVersion = 34
-                    targetSdkVersion = 34
-                    ndkVersion = "25.1.8937393"
-                    kotlinVersion = "1.9.22"
-                }
-                repositories {
-                    google()
-                    mavenCentral()
-                }
-                dependencies {
-                    classpath("com.android.tools.build:gradle:8.2.1")
-                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
-                }
-            }
-            
-            allprojects {
-                repositories {
-                    maven { url("$rootDir/../node_modules/react-native/android") }
-                    maven { url("$rootDir/../node_modules/jsc-android/dist") }
-                    mavenCentral()
-                    google()
-                    maven { url 'https://www.jitpack.io' }
-                }
-            }
-            EOF
-            
-            # Create app/build.gradle
-            cat > android/app/build.gradle << 'EOF'
-            apply plugin: "com.android.application"
-            apply plugin: "org.jetbrains.kotlin.android"
-            apply plugin: "com.facebook.react"
-            
-            react {
-                // Configuration for React Native
-            }
-            
-            android {
-                ndkVersion rootProject.ext.ndkVersion
-                buildToolsVersion rootProject.ext.buildToolsVersion
-                compileSdk rootProject.ext.compileSdkVersion
-                
-                namespace "com.temp.app"
-                
-                defaultConfig {
-                    applicationId "com.temp.app"
-                    minSdkVersion rootProject.ext.minSdkVersion
-                    targetSdkVersion rootProject.ext.targetSdkVersion
-                    versionCode 1
-                    versionName "1.0"
-                }
-                
-                buildTypes {
-                    release {
-                        minifyEnabled true
-                        proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-                    }
-                }
-            }
-            
-            dependencies {
-                implementation("com.facebook.react:react-android")
-                implementation("com.facebook.react:hermes-android")
-            }
-            
-            apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
-            EOF
-            
-            # Create AndroidManifest.xml
-            cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-            <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-                <uses-permission android:name="android.permission.INTERNET" />
-                <application
-                    android:allowBackup="true"
-                    android:label="@string/app_name"
-                    android:supportsRtl="true">
-                    <activity
-                        android:name=".MainActivity"
-                        android:exported="true"
-                        android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-                        android:launchMode="singleTask"
-                        android:windowSoftInputMode="adjustResize">
-                        <intent-filter>
-                            <action android:name="android.intent.action.MAIN" />
-                            <category android:name="android.intent.category.LAUNCHER" />
-                        </intent-filter>
-                    </activity>
-                </application>
-            </manifest>
-            EOF
-            
-            # Create MainActivity.java
-            cat > android/app/src/main/java/com/temp/app/MainActivity.java << 'EOF'
-            package com.temp.app;
-            
-            import com.facebook.react.ReactActivity;
-            import com.facebook.react.ReactActivityDelegate;
-            import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
-            import com.facebook.react.defaults.DefaultReactActivityDelegate;
-            
-            public class MainActivity extends ReactActivity {
-                @Override
-                protected String getMainComponentName() {
-                    return "App";
-                }
-                
-                @Override
-                protected ReactActivityDelegate createReactActivityDelegate() {
-                    return new DefaultReactActivityDelegate(
-                        this,
-                        getMainComponentName(),
-                        DefaultNewArchitectureEntryPoint.getFabricEnabled()
-                    );
-                }
-            }
-            EOF
-            
-            # Create MainApplication.java
-            cat > android/app/src/main/java/com/temp/app/MainApplication.java << 'EOF'
-            package com.temp.app;
-            
-            import android.app.Application;
-            import com.facebook.react.PackageList;
-            import com.facebook.react.ReactApplication;
-            import com.facebook.react.ReactNativeHost;
-            import com.facebook.react.ReactPackage;
-            import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
-            import com.facebook.react.defaults.DefaultReactNativeHost;
-            import com.facebook.soloader.SoLoader;
-            import java.util.List;
-            
-            public class MainApplication extends Application implements ReactApplication {
-                private final ReactNativeHost mReactNativeHost = new DefaultReactNativeHost(this) {
-                    @Override
-                    public boolean getUseDeveloperSupport() {
-                        return BuildConfig.DEBUG;
-                    }
-                    
-                    @Override
-                    protected List<ReactPackage> getPackages() {
-                        return new PackageList(this).getPackages();
-                    }
-                    
-                    @Override
-                    protected String getJSMainModuleName() {
-                        return "index";
-                    }
-                    
-                    @Override
-                    protected boolean isNewArchEnabled() {
-                        return BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
-                    }
-                    
-                    @Override
-                    protected Boolean isHermesEnabled() {
-                        return BuildConfig.IS_HERMES_ENABLED;
-                    }
-                };
-                
-                @Override
-                public ReactNativeHost getReactNativeHost() {
-                    return mReactNativeHost;
-                }
-                
-                @Override
-                public void onCreate() {
-                    super.onCreate();
-                    SoLoader.init(this, false);
-                    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-                        DefaultNewArchitectureEntryPoint.load();
-                    }
-                }
-            }
-            EOF
-            
-            # Create resources
-            cat > android/app/src/main/res/values/strings.xml << 'EOF'
-            <resources>
-                <string name="app_name">App</string>
-            </resources>
-            EOF
-            
-            cat > android/app/src/main/res/values/styles.xml << 'EOF'
-            <resources>
-                <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-                    <item name="android:editTextBackground">@android:color/transparent</item>
-                    <item name="android:statusBarColor">@android:color/transparent</item>
-                </style>
-            </resources>
-            EOF
-            
-            # Create gradle wrapper properties
-            cat > android/gradle/wrapper/gradle-wrapper.properties << EOF
-            distributionBase=GRADLE_USER_HOME
-            distributionPath=wrapper/dists
-            distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip
-            networkTimeout=10000
-            validateDistributionUrl=true
-            zipStoreBase=GRADLE_USER_HOME
-            zipStorePath=wrapper/dists
-            EOF
-            
-            # Create gradle.properties
-            cat > android/gradle.properties << 'EOF'
-            org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
-            org.gradle.parallel=true
-            org.gradle.caching=true
-            org.gradle.configureondemand=true
-            android.useAndroidX=true
-            android.enableJetifier=true
-            reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
-            newArchEnabled=false
-            hermesEnabled=true
-            EOF
-            
-            # Create gradlew
-            cat > android/gradlew << 'EOF'
-            #!/bin/sh
-            # Gradle wrapper script
-            # ... (simplified version)
-            exec "$JAVACMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
-            EOF
-            chmod +x android/gradlew
-            
-            echo "✅ Minimal Android project created"
-          fi
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  # ============================================
-  # JOB 4: BUILD APK
-  # ============================================
-  build-apk:
-    needs: [diagnostics, fix-and-install, generate-android]
-    if: |
-      always() && 
-      needs.fix-and-install.result == 'success' &&
-      (needs.generate-android.result == 'success' || needs.generate-android.result == 'skipped')
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: 🔧 Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      
-      - name: ☕ Setup Java
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-      
-      - name: 🤖 Setup Android SDK
+          cache: gradle
+
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: |
-            platforms;android-${{ env.ANDROID_COMPILE_SDK }}
-            build-tools;${{ env.ANDROID_BUILD_TOOLS }}
-            ndk;25.1.8937393
-            cmake;3.22.1
-      
-      - name: 📦 Install Dependencies
-        run: npm install --no-audit --no-fund
-      
-      - name: 🔧 Configure Build Environment
+
+      - name: Determine build mode
+        id: mode
+        shell: bash
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔧 CONFIGURING BUILD ENVIRONMENT"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Create local.properties
-          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-          echo "ndk.dir=$ANDROID_HOME/ndk/25.1.8937393" >> android/local.properties
-          
-          # Optimize Gradle
-          mkdir -p ~/.gradle
-          cat > ~/.gradle/gradle.properties << 'EOF'
-          org.gradle.daemon=true
-          org.gradle.parallel=true
-          org.gradle.caching=true
-          org.gradle.configureondemand=true
-          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
-          android.useAndroidX=true
-          android.enableJetifier=true
-          EOF
-          
-          echo "✅ Build environment configured"
-      
-      - name: 🔐 Setup Signing (Optional)
-        if: env.KEYSTORE_BASE64
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔐 CONFIGURING APK SIGNING"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Decode keystore
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-          
-          # Add signing config to build.gradle
-          cat >> android/app/build.gradle << 'EOF'
-          
-          android {
-              signingConfigs {
-                  release {
-                      storeFile file('release.keystore')
-                      storePassword System.getenv('KEYSTORE_PASSWORD')
-                      keyAlias System.getenv('KEY_ALIAS')
-                      keyPassword System.getenv('KEY_PASSWORD')
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                  }
-              }
-          }
-          EOF
-          
-          echo "✅ Signing configured"
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      
-      - name: 🏗️ Build APK
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🏗️ BUILDING APK"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          cd android
-          
-          # Make gradlew executable
-          chmod +x gradlew
-          
-          # Clean build first
-          echo "Cleaning previous builds..."
-          ./gradlew clean 2>&1 || echo "⚠️  Clean had issues (non-critical)"
-          
-          # Build based on type
-          if [ "${{ github.event.inputs.build_type || 'release' }}" = "release" ]; then
-            echo "Building RELEASE APK..."
-            ./gradlew assembleRelease \
-              -x lint \
-              -x test \
-              --build-cache \
-              --parallel \
-              --configure-on-demand \
-              --no-daemon \
-              --stacktrace 2>&1 | tee build.log
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "build_type=${{ inputs.build_type }}" >> "$GITHUB_OUTPUT"
+            echo "clean_install=${{ inputs.clean_install }}" >> "$GITHUB_OUTPUT"
+            echo "upload_artifact=${{ inputs.upload_artifact }}" >> "$GITHUB_OUTPUT"
           else
-            echo "Building DEBUG APK..."
-            ./gradlew assembleDebug \
-              -x lint \
-              -x test \
-              --build-cache \
-              --parallel \
-              --configure-on-demand \
-              --no-daemon \
-              --stacktrace 2>&1 | tee build.log
+            echo "build_type=debug" >> "$GITHUB_OUTPUT"
+            echo "clean_install=true" >> "$GITHUB_OUTPUT"
+            echo "upload_artifact=true" >> "$GITHUB_OUTPUT"
           fi
-          
-          # Check build result
-          BUILD_TYPE=${{ github.event.inputs.build_type || 'release' }}
-          if [ -f "app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk" ]; then
-            APK_SIZE=$(du -h "app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk" | cut -f1)
-            echo "✅ APK built successfully!"
-            echo "📱 APK Size: $APK_SIZE"
-            echo "📍 Location: android/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk"
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/gradle-wrapper.properties') }}
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -e
+          if [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          elif [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
           else
-            echo "❌ APK not found at expected location"
-            echo "Searching for APKs..."
-            find . -name "*.apk" 2>/dev/null || echo "No APKs found"
-            
-            # Check build log for errors
-            if [ -f "build.log" ]; then
-              echo "Last 50 lines of build log:"
-              tail -50 build.log
-            fi
-            
+            npm ci
+          fi
+
+      - name: Clean Android build
+        if: steps.mode.outputs.clean_install == 'true'
+        shell: bash
+        run: |
+          if [ -d android ]; then
+            cd android
+            ./gradlew clean
+          fi
+
+      - name: Prepare signing files
+        if: steps.mode.outputs.build_type == 'release'
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ] || [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
+            echo "Missing Android signing secrets"
             exit 1
           fi
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      
-      - name: 📤 Upload APK
-        if: success() && github.event.inputs.upload_artifact != 'false'
+
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+
+          cat > android/keystore.properties <<EOF
+          storeFile=app/release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Build debug APK
+        if: steps.mode.outputs.build_type == 'debug'
+        shell: bash
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Build release APK
+        if: steps.mode.outputs.build_type == 'release'
+        shell: bash
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Collect APK path
+        id: apk
+        shell: bash
+        run: |
+          if [ "${{ steps.mode.outputs.build_type }}" = "release" ]; then
+            APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          else
+            APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -1)
+          fi
+
+          if [ -z "$APK_PATH" ]; then
+            echo "APK not found"
+            exit 1
+          fi
+
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        if: steps.mode.outputs.upload_artifact == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ needs.diagnostics.outputs.project_name }}-${{ github.event.inputs.build_type || 'release' }}-${{ github.run_number }}
-          path: android/app/build/outputs/apk/${{ github.event.inputs.build_type || 'release' }}/app-${{ github.event.inputs.build_type || 'release' }}.apk
-          retention-days: 90
-          compression-level: 9
-      
-      - name: 📊 Build Report
-        if: always()
-        run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║          📊 BUILD REPORT                                    ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "📋 Project: ${{ needs.diagnostics.outputs.project_name }}"
-          echo "📱 Package: ${{ needs.diagnostics.outputs.package_name }}"
-          echo "🔢 Build Number: ${{ github.run_number }}"
-          echo "🔨 Build Type: ${{ github.event.inputs.build_type || 'release' }}"
-          echo "📝 Commit: ${{ github.sha }}"
-          echo "🌿 Branch: ${{ github.ref }}"
-          echo "📅 Date: $(date)"
-          echo ""
-          
-          BUILD_TYPE=${{ github.event.inputs.build_type || 'release' }}
-          if [ -f "android/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk" ]; then
-            echo "✅ BUILD SUCCESSFUL"
-            ls -lh "android/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk"
-          else
-            echo "❌ BUILD FAILED"
-          fi
-          
-          echo ""
-          echo "📥 Download from: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo ""
+          name: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type || 'debug' }}-apk
+          path: ${{ steps.apk.outputs.apk_path }}
+          if-no-files-found: error
+          retention-days: 14
+```
 
-  # ============================================
-  # JOB 5: FINAL SUMMARY & NOTIFICATIONS
-  # ============================================
-  final-summary:
-    needs: [diagnostics, fix-and-install, build-apk]
-    if: always()
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📊 Generate Final Report
-        run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║          🎯 FINAL PIPELINE REPORT                           ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 JOB STATUSES"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  🔍 Diagnostics:     ${{ needs.diagnostics.result }}"
-          echo "  🔧 Fix & Install:   ${{ needs.fix-and-install.result }}"
-          echo "  🏗️  Build APK:       ${{ needs.build-apk.result }}"
-          echo ""
-          
-          if [ "${{ needs.build-apk.result }}" = "success" ]; then
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ BUILD SUCCESSFUL! APK is ready for download"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo ""
-            echo "📥 Download your APK here:"
-            echo "   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo ""
-            echo "📱 APK Details:"
-            echo "   - Project: ${{ needs.diagnostics.outputs.project_name }}"
-            echo "   - Package: ${{ needs.diagnostics.outputs.package_name }}"
-            echo "   - Type: ${{ github.event.inputs.build_type || 'release' }}"
-            echo "   - Build: #${{ github.run_number }}"
-            echo ""
-          else
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "❌ BUILD FAILED"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo ""
-            echo "🔍 Check logs for errors:"
-            echo "   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo ""
-            
-            # Provide troubleshooting tips
-            echo "💡 Common fixes:"
-            echo "   1. Check that React Native version is compatible with Node.js"
-            echo "   2. Verify Android SDK versions in build.gradle"
-            echo "   3. Clear npm cache: npm cache clean --force"
-            echo "   4. Delete node_modules and reinstall: rm -rf node_modules && npm install"
-            echo "   5. Update Gradle wrapper: cd android && ./gradlew wrapper --gradle-version 8.5"
-            echo ""
-          fi
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "⏱️  Build Time: $(date)"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+---
+
+## What Was Wrong
+
+### 1. Invalid YAML at the end
+This line was plain text, not a YAML comment or string:
+
+```yaml
+TURN it into fully production-ready GitHub Actions workflow that actually builds the APK, signs release builds, and uploads artifacts.
+```
+
+That breaks parsing completely.
+
+### 2. Workflow was incomplete
+The original file stopped mid-script at:
+
+```bash
+echo "Checking React Native dependencies..."
+```
+
+There was no actual build step, no APK assembly, no signing, and no artifact upload.
+
+### 3. Release signing was missing
+A production Android release build usually needs:
+- keystore file
+- key alias
+- keystore password
+- key password
+
+The fixed workflow supports signing via GitHub Secrets:
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+### 4. Some expressions were fragile
+The original script used shell parsing and `grep -oP`, which is not always portable. The corrected version keeps the workflow simpler and safer.
+
+### 5. No actual artifact upload logic
+The workflow needed `actions/upload-artifact` to store the generated APK.
+
+---
+
+## Required GitHub Secrets for Release Builds
+
+Add these secrets in your repository settings:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+`ANDROID_KEYSTORE_BASE64` should be the Base64-encoded keystore file.
